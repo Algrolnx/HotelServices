@@ -1,0 +1,621 @@
+DashboardPage.xaml.cs:
+using HotelServices.Models;
+using HotelServices;
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
+
+namespace HotelServices.Pages
+{
+    public partial class DashboardPage : Page
+    {
+        private readonly User _currentUser;
+        private DispatcherTimer _timer;
+
+        public string CurrentDateTime { get; set; }
+
+        public DashboardPage(User user)
+        {
+            InitializeComponent();
+            _currentUser = user;
+            DataContext = this;
+
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+            // Налаштування показу кнопки управління користувачами для директора
+            if (_currentUser.Role == UserRole.Director)
+            {
+                btnUserManagement.Visibility = Visibility.Visible;
+            }
+
+            // Встановлення початкового значення дати та часу
+            CurrentDateTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm");
+
+            // Ініціалізація таймера для оновлення поточного часу
+            _timer = new DispatcherTimer(); // Ініціалізація _timer
+            InitializeTimer();
+
+            // Додавання обробника події для видалення таймера при виході зі сторінки
+            Unloaded += DashboardPage_Unloaded;
+        }
+
+
+
+        private void InitializeTimer()
+        {
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += Timer_Tick;
+            _timer.Start();
+        }
+
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            UpdateCurrentDateTime();
+        }
+
+        private void UpdateCurrentDateTime()
+        {
+            CurrentDateTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm");
+            DataContext = null;
+            DataContext = this;
+        }
+
+        private void DashboardPage_Unloaded(object? sender, RoutedEventArgs e)
+        {
+            // Зупинка таймера при вивантаженні сторінки
+            if (_timer != null)
+            {
+                _timer.Stop();
+                _timer.Tick -= Timer_Tick;
+                _timer = null!;
+            }
+
+
+            // Видалення обробника події
+            Unloaded -= DashboardPage_Unloaded;
+        }
+
+
+        private void BackToMain_Click(object sender, RoutedEventArgs e)
+        {
+            // Цей метод порожній, оскільки кнопка прихована на головній сторінці
+        }
+
+        private void NavigateToApartments(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button)
+            {
+                AnimateButtonClick(button);
+            }
+            NavigationService.Navigate(new ResourcePage(ResourceType.Apartment, _currentUser));
+        }
+
+        private void NavigateToConferenceRooms(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button)
+            {
+                AnimateButtonClick(button);
+            }
+            NavigationService.Navigate(new ResourcePage(ResourceType.ConferenceRoom, _currentUser));
+        }
+
+        private void NavigateToParking(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button)
+            {
+                AnimateButtonClick(button);
+            }
+            NavigationService.Navigate(new ResourcePage(ResourceType.ParkingSpace, _currentUser));
+        }
+
+        private void NavigateToRestaurant(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button)
+            {
+                AnimateButtonClick(button);
+            }
+            NavigationService.Navigate(new ResourcePage(ResourceType.RestaurantTable, _currentUser));
+        }
+
+        private void NavigateToServices(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button)
+            {
+                AnimateButtonClick(button);
+            }
+            NavigationService.Navigate(new ResourcePage(ResourceType.AdditionalService, _currentUser));
+        }
+
+        private void NavigateToUserManagement(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button)
+            {
+                AnimateButtonClick(button);
+            }
+            NavigationService.Navigate(new UserManagementPage(_currentUser));
+        }
+
+        private void AnimateButtonClick(Button button)
+        {
+            if (button == null) return;
+
+        }
+    }
+}
+
+
+
+
+
+
+ResourcePage.xaml.cs:
+using HotelServices.Models;
+using HotelServices.Services;
+using HotelServices;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
+using HotelServices.Dialogs;
+
+namespace HotelServices.Pages
+{
+    public partial class ResourcePage : Page
+    {
+        private readonly ResourceType _resourceType;
+        private readonly User _currentUser;
+        private readonly DataService _dataService;
+        private List<Resource> _resources;
+        private DispatcherTimer _timer;
+
+        public string CurrentDateTime { get; set; }
+
+        public ResourcePage(ResourceType resourceType, User currentUser)
+        {
+            InitializeComponent();
+            _resourceType = resourceType;
+            _currentUser = currentUser;
+            _dataService = new DataService();
+            DataContext = this;
+
+            SetTitle();
+            LoadResources();
+            InitializeTimerAndDateTime();
+
+            // Додавання обробника події для видалення таймера при виході зі сторінки
+            Unloaded += ResourcePage_Unloaded;
+        }
+
+        private void InitializeTimerAndDateTime()
+        {
+            // Початкове оновлення часу
+            UpdateCurrentDateTime();
+
+            // Ініціалізація таймера
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += Timer_Tick;
+            _timer.Start();
+        }
+
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            UpdateCurrentDateTime();
+        }
+
+        private void UpdateCurrentDateTime()
+        {
+            CurrentDateTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm");
+            DataContext = null;
+            DataContext = this;
+        }
+
+        private void ResourcePage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            // Зупинка таймера при вивантаженні сторінки
+            if (_timer != null)
+            {
+                _timer.Stop();
+                _timer.Tick -= Timer_Tick;
+                _timer = null;
+            }
+
+            // Видалення обробника події
+            Unloaded -= ResourcePage_Unloaded;
+        }
+
+        private void BackToMain_Click(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            if (Window.GetWindow(this) is DashboardWindow dashboard)
+            {
+                dashboard.mainFrame.Navigate(new DashboardPage(_currentUser));
+            }
+        }
+
+        private void SetTitle()
+        {
+            string title = _resourceType switch
+            {
+                ResourceType.Apartment => "Управління апартаментами",
+                ResourceType.ConferenceRoom => "Бронювання конференц-залів",
+                ResourceType.ParkingSpace => "Облік паркомісць",
+                ResourceType.RestaurantTable => "Бронювання ресторану",
+                ResourceType.AdditionalService => "Додаткові послуги",
+                _ => "Ресурси"
+            };
+
+            lblTitle.Text = title;
+        }
+
+        private void LoadResources()
+        {
+            _resources = _dataService.GetResourcesByType(_resourceType);
+            resourcesGrid.ItemsSource = _resources;
+
+            // Стилізація даних в таблиці на основі статусу (можна розширити)
+        }
+
+        private void AddResource(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            var dialog = new ResourceEditDialog(_resourceType, null);
+            if (dialog.ShowDialog() == true)
+            {
+                _dataService.AddResource(dialog.Resource);
+                LoadResources();
+                ShowNotification("Ресурс успішно додано");
+            }
+        }
+
+        private void EditResource(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            if (resourcesGrid.SelectedItem is Resource selectedResource)
+            {
+                var dialog = new ResourceEditDialog(_resourceType, selectedResource);
+                if (dialog.ShowDialog() == true)
+                {
+                    _dataService.UpdateResource(dialog.Resource);
+                    LoadResources();
+                    ShowNotification("Ресурс успішно оновлено");
+                }
+            }
+            else
+            {
+                ShowWarning("Будь ласка, виберіть ресурс для редагування");
+            }
+        }
+
+        private void DeleteResource(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            if (resourcesGrid.SelectedItem is Resource selectedResource)
+            {
+                if (MessageBox.Show("Ви впевнені, що хочете видалити цей ресурс?", "Підтвердження",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    _dataService.DeleteResource(selectedResource.Id);
+                    LoadResources();
+                    ShowNotification("Ресурс успішно видалено");
+                }
+            }
+            else
+            {
+                ShowWarning("Будь ласка, виберіть ресурс для видалення");
+            }
+        }
+
+        private void GenerateReport(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            var reportDialog = new ReportDialog(_resourceType);
+            reportDialog.ShowDialog();
+        }
+
+        private void ResourcesGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Оновлення інтерфейсу при виборі елемента
+        }
+
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplyFilters();
+            // Показати або сховати плейсхолдер
+            PlaceholderTextBlock.Visibility = string.IsNullOrWhiteSpace(SearchTextBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        private void FilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ApplyFilters();
+        }
+
+        private void ResetFilters_Click(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            SearchTextBox.Text = string.Empty;
+            StatusFilterComboBox.SelectedIndex = 0;
+            ApplyFilters();
+            ShowNotification("Фільтри скинуто");
+        }
+
+        private void ApplyFilters()
+        {
+            if (_resources == null) return;
+
+            var filtered = _resources.AsEnumerable();
+
+            // Пошук за текстом
+            if (!string.IsNullOrEmpty(SearchTextBox.Text))
+            {
+                var searchText = SearchTextBox.Text.ToLower();
+                filtered = filtered.Where(r =>
+                    r.Name.ToLower().Contains(searchText) ||
+                    (r.Description != null && r.Description.ToLower().Contains(searchText)));
+            }
+
+            // Фільтр за статусом
+            if (StatusFilterComboBox.SelectedIndex > 0 && StatusFilterComboBox.SelectedIndex <= Enum.GetValues(typeof(ReservationStatus)).Length)
+            {
+                var selectedStatus = (ReservationStatus)(StatusFilterComboBox.SelectedIndex - 1);
+                filtered = filtered.Where(r => r.Status == selectedStatus);
+            }
+
+            // Оновлення відображення даних
+            resourcesGrid.ItemsSource = filtered.ToList();
+
+        }
+
+        // Метод для анімації натискання кнопки
+        private void AnimateButtonClick(Button button)
+        {
+            if (button == null) return;
+
+        }
+
+        private void ShowNotification(string message)
+        {
+
+        }
+
+        private void ShowWarning(string message)
+        {
+            MessageBox.Show(message, "Попередження", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+}
+
+
+
+
+
+UserManagementPage.xaml.cs:
+using HotelServices.Models;
+using HotelServices.Services;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Threading;
+
+namespace HotelServices.Pages
+{
+    public partial class UserManagementPage : Page
+    {
+        private readonly User _currentUser;
+        private readonly DataService _dataService;
+        private List<User> _users;
+        private DispatcherTimer _timer;
+
+        public string CurrentDateTime { get; set; }
+
+        public UserManagementPage(User currentUser)
+        {
+            InitializeComponent();
+            _currentUser = currentUser;
+            _dataService = new DataService();
+            DataContext = this;
+
+            LoadUsers();
+            InitializeTimerAndDateTime();
+
+            // Додавання обробника події для видалення таймера при виході зі сторінки
+            Unloaded += UserManagementPage_Unloaded;
+        }
+
+        private void InitializeTimerAndDateTime()
+        {
+            // Початкове оновлення часу
+            UpdateCurrentDateTime();
+
+            // Ініціалізація таймера
+            _timer = new DispatcherTimer();
+            _timer.Interval = TimeSpan.FromSeconds(1);
+            _timer.Tick += Timer_Tick;
+            _timer.Start();
+        }
+
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            UpdateCurrentDateTime();
+        }
+
+        private void UpdateCurrentDateTime()
+        {
+            CurrentDateTime = DateTime.Now.ToString("dd.MM.yyyy HH:mm");
+            DataContext = null;
+            DataContext = this;
+        }
+
+        private void UserManagementPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            // Зупинка таймера при вивантаженні сторінки
+            if (_timer != null)
+            {
+                _timer.Stop();
+                _timer.Tick -= Timer_Tick;
+                _timer = null;
+            }
+
+            // Видалення обробника події
+            Unloaded -= UserManagementPage_Unloaded;
+        }
+
+        private void BackToMain_Click(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            if (Window.GetWindow(this) is DashboardWindow dashboard)
+            {
+                dashboard.mainFrame.Navigate(new DashboardPage(_currentUser));
+            }
+        }
+
+        private void LoadUsers()
+        {
+            _users = _dataService.GetAllUsers();
+            if (_users == null)
+            {
+                _users = new List<User>();
+            }
+            usersGrid.ItemsSource = _users;
+
+            // Стилізація даних в таблиці на основі статусу
+        }
+
+        private void AddUser(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            var dialog = new UserEditDialog(null);
+            if (dialog.ShowDialog() == true)
+            {
+                _dataService.AddUser(dialog.User);
+                LoadUsers();
+                ShowNotification("Користувача успішно додано");
+            }
+        }
+
+        private void EditUser(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            if (usersGrid.SelectedItem is User selectedUser)
+            {
+                var dialog = new UserEditDialog(selectedUser);
+                if (dialog.ShowDialog() == true)
+                {
+                    _dataService.UpdateUser(dialog.User);
+                    LoadUsers();
+                    ShowNotification("Дані користувача успішно оновлено");
+                }
+            }
+            else
+            {
+                ShowWarning("Будь ласка, виберіть користувача для редагування");
+            }
+        }
+
+        private void DeleteUser(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            if (usersGrid.SelectedItem is User selectedUser)
+            {
+                if (selectedUser.Id == _currentUser.Id)
+                {
+                    ShowWarning("Ви не можете видалити самого себе");
+                    return;
+                }
+
+                if (MessageBox.Show("Ви впевнені, що хочете видалити цього користувача?", "Підтвердження",
+                    MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    _dataService.DeleteUser(selectedUser.Id);
+                    LoadUsers();
+                    ShowNotification("Користувача успішно видалено");
+                }
+            }
+            else
+            {
+                ShowWarning("Будь ласка, виберіть користувача для видалення");
+            }
+        }
+
+        private void UsersGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            // Оновлення інтерфейсу при виборі елемента
+        }
+
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplyFilters();
+            // Показати або сховати плейсхолдер
+            PlaceholderTextBlock.Visibility = string.IsNullOrWhiteSpace(SearchTextBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        private void FilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ApplyFilters();
+        }
+
+        private void ResetFilters_Click(object sender, RoutedEventArgs e)
+        {
+            AnimateButtonClick(sender as Button);
+            SearchTextBox.Text = string.Empty;
+            RoleFilterComboBox.SelectedIndex = 0;
+            ApplyFilters();
+            ShowNotification("Фільтри скинуто");
+        }
+
+        private void ApplyFilters()
+        {
+            if (_users == null) return;
+
+            var filtered = _users.AsEnumerable();
+
+            // Пошук за текстом
+            if (!string.IsNullOrEmpty(SearchTextBox.Text))
+            {
+                var searchText = SearchTextBox.Text.ToLower();
+                filtered = filtered.Where(u =>
+                    (u.Username != null && u.Username.ToLower().Contains(searchText)) ||
+                    (u.FullName != null && u.FullName.ToLower().Contains(searchText)));
+            }
+
+            // Фільтр за роллю
+            if (RoleFilterComboBox.SelectedIndex > 0 &&
+                RoleFilterComboBox.SelectedIndex <= Enum.GetValues(typeof(UserRole)).Length)
+            {
+                var selectedRole = (UserRole)(RoleFilterComboBox.SelectedIndex - 1);
+                filtered = filtered.Where(u => u.Role == selectedRole);
+            }
+
+            // Оновлення відображення даних
+            usersGrid.ItemsSource = filtered.ToList();
+        }
+
+        // Метод для анімації натискання кнопки
+        private void AnimateButtonClick(Button button)
+        {
+            if (button == null) return;
+
+        }
+
+        // Методи для показу повідомлень користувачу
+        private void ShowNotification(string message)
+        {
+
+        }
+
+        private void ShowWarning(string message)
+        {
+            MessageBox.Show(message, "Попередження", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+}
